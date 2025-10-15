@@ -55,6 +55,11 @@
       script.src = '/node_modules/expo-router/entry.bundle?platform=web&dev=true';
       script.onload = function() {
         console.log('App loaded successfully');
+        // Hide loading screen
+        const loadingDiv = document.querySelector('.loading');
+        if (loadingDiv) {
+          loadingDiv.style.display = 'none';
+        }
       };
       script.onerror = function() {
         console.error('Failed to load app bundle');
