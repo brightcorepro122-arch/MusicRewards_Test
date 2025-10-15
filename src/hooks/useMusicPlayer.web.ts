@@ -1,4 +1,4 @@
-// Web-compatible version of useMusicPlayer hook
+// Web-compatible version of useMusicPlayer hook using HTML5 Audio API
 import { useCallback, useEffect, useState } from 'react';
 import { useMusicStore, selectCurrentTrack, selectIsPlaying } from '../stores/musicStore';
 import { useUserStore } from '../stores/userStore';
@@ -102,7 +102,7 @@ export const useMusicPlayer = (): UseMusicPlayerReturn => {
     } catch (err) {
       console.error('Seek error:', err);
     }
-  }, [audioElement, setCurrentPosition]);
+  }, [audioElement]);
 
   const resume = useCallback(async () => {
     try {

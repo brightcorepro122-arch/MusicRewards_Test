@@ -27,6 +27,7 @@ config.transformer = {
       inlineRequires: true,
     },
   }),
+  unstable_allowRequireContext: true,
 };
 
 // Add web-specific transformer
@@ -36,5 +37,10 @@ config.transformer.minifierConfig = {
     keep_fnames: true,
   },
 };
+
+// Fix for shaka-player and react-native-track-player web issues
+config.resolver.blockList = [
+  /node_modules\/react-native-track-player/,
+];
 
 module.exports = config;
