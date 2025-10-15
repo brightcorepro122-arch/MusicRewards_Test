@@ -1,8 +1,11 @@
 // Root layout for Expo Router
 import { Stack } from 'expo-router';
 import { useEffect } from 'react';
+import { View } from 'react-native';
 import TrackPlayer from 'react-native-track-player';
 import { setupTrackPlayer } from '../services/audioService';
+import { ToastContainer } from '../components/ui/ToastContainer';
+import { OfflineIndicator } from '../components/ui/OfflineIndicator';
 
 export default function RootLayout() {
   useEffect(() => {
@@ -16,15 +19,19 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <Stack>
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen 
-        name="(modals)" 
-        options={{ 
-          presentation: 'modal',
-          headerShown: false 
-        }} 
-      />
-    </Stack>
+    <View style={{ flex: 1 }}>
+      <Stack>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen 
+          name="(modals)" 
+          options={{ 
+            presentation: 'modal',
+            headerShown: false 
+          }} 
+        />
+      </Stack>
+      <ToastContainer />
+      <OfflineIndicator />
+    </View>
   );
 }

@@ -14,6 +14,21 @@ export const THEME = {
     },
     border: 'rgba(255, 255, 255, 0.2)',
   },
+  
+  // Light theme colors
+  lightColors: {
+    primary: '#7553DB',     // Belong purple
+    secondary: '#34CB76',   // Belong green  
+    accent: '#FCBE25',      // Belong yellow
+    background: '#FFFFFF',  // Light background
+    glass: 'rgba(0, 0, 0, 0.1)',
+    text: {
+      primary: '#1a1a1a',
+      secondary: 'rgba(26, 26, 26, 0.7)',
+      tertiary: 'rgba(26, 26, 26, 0.5)',
+    },
+    border: 'rgba(0, 0, 0, 0.2)',
+  },
   fonts: {
     regular: 'System',
     medium: 'System', 

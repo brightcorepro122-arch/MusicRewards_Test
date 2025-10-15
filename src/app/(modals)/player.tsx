@@ -1,19 +1,32 @@
 // Player modal - Full-screen audio player (Expo Router modal)
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   View, 
   Text, 
   StyleSheet, 
   TouchableOpacity,
   SafeAreaView,
-  Alert
+  Alert,
+  ScrollView,
+  PanGestureHandler,
+  State
 } from 'react-native';
+import { GestureHandlerRootView, PanGestureHandler as PanGH } from 'react-native-gesture-handler';
+import { router } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import { GlassCard, GlassButton } from '../../components/ui/GlassCard';
+import { AudioVisualizer } from '../../components/ui/AudioVisualizer';
+import { ConfettiAnimation } from '../../components/ui/ConfettiAnimation';
 import { useMusicPlayer } from '../../hooks/useMusicPlayer';
 import { usePointsCounter } from '../../hooks/usePointsCounter';
+import { useToast } from '../../hooks/useToast';
 import { THEME } from '../../constants/theme';
 
 export default function PlayerModal() {
+  const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
+  const [showSpeedControls, setShowSpeedControls] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
+  
   const { 
     currentTrack, 
     isPlaying, 
@@ -26,6 +39,8 @@ export default function PlayerModal() {
     loading,
     error 
   } = useMusicPlayer();
+
+  const { showSuccess, showError } = useToast();
 
   const {
     currentPoints,
@@ -55,6 +70,9 @@ export default function PlayerModal() {
   };
 
   const handlePlayPause = async () => {
+    // Haptic feedback
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    
     if (isPlaying) {
       pause();
       stopCounting();
@@ -71,6 +89,20 @@ export default function PlayerModal() {
     }
   };
 
+  const handleSpeedChange = (speed: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setPlaybackSpeed(speed);
+    // Note: TrackPlayer doesn't support speed control in this version
+    // This is a UI enhancement for future implementation
+  };
+
+  const handleSwipeDown = (event: any) => {
+    if (event.nativeEvent.translationY > 100) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      router.back();
+    }
+  };
+
   // Start points counting when track starts playing
   React.useEffect(() => {
     if (currentTrack && isPlaying && !pointsActive) {
@@ -81,6 +113,21 @@ export default function PlayerModal() {
       });
     }
   }, [currentTrack, isPlaying, pointsActive, startCounting]);
+
+  // Trigger confetti when points are earned
+  React.useEffect(() => {
+    if (currentPoints > 0 && currentPoints % 50 === 0) {
+      setShowConfetti(true);
+      showSuccess(`🎉 Earned ${currentPoints} points!`);
+    }
+  }, [currentPoints, showSuccess]);
+
+  // Show error toast
+  React.useEffect(() => {
+    if (error) {
+      showError(`Playback Error: ${error}`);
+    }
+  }, [error, showError]);
 
   if (error) {
     Alert.alert('Playback Error', error);
@@ -100,13 +147,21 @@ export default function PlayerModal() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
+    <GestureHandlerRootView style={styles.container}>
+      <PanGH onGestureEvent={handleSwipeDown}>
+        <SafeAreaView style={styles.container}>
+          <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Track Info */}
         <GlassCard style={styles.trackInfoCard}>
           <Text style={styles.trackTitle}>{currentTrack.title}</Text>
           <Text style={styles.trackArtist}>{currentTrack.artist}</Text>
           <Text style={styles.trackDescription}>{currentTrack.description}</Text>
+          
+          {/* Audio Visualizer */}
+          <AudioVisualizer 
+            isPlaying={isPlaying} 
+            intensity={isPlaying ? 0.7 : 0.1}
+          />
           
           <View style={styles.pointsContainer}>
             <Text style={styles.pointsLabel}>Challenge Points</Text>
@@ -165,7 +220,10 @@ export default function PlayerModal() {
           <View style={styles.controlsRow}>
             <GlassButton
               title="⏪ -10s"
-              onPress={() => handleSeek(Math.max(0, getProgress() - (10 / duration) * 100))}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                handleSeek(Math.max(0, getProgress() - (10 / duration) * 100));
+              }}
               variant="secondary"
               style={styles.controlButton}
             />
@@ -180,10 +238,50 @@ export default function PlayerModal() {
             
             <GlassButton
               title="⏩ +10s"
-              onPress={() => handleSeek(Math.min(100, getProgress() + (10 / duration) * 100))}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                handleSeek(Math.min(100, getProgress() + (10 / duration) * 100));
+              }}
               variant="secondary"
               style={styles.controlButton}
             />
+          </View>
+
+          {/* Playback Speed Controls */}
+          <View style={styles.speedControlsContainer}>
+            <TouchableOpacity 
+              style={styles.speedToggle}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setShowSpeedControls(!showSpeedControls);
+              }}
+            >
+              <Text style={styles.speedToggleText}>
+                Speed: {playbackSpeed}x {showSpeedControls ? '▲' : '▼'}
+              </Text>
+            </TouchableOpacity>
+            
+            {showSpeedControls && (
+              <View style={styles.speedButtons}>
+                {[0.5, 0.75, 1.0, 1.25, 1.5, 2.0].map((speed) => (
+                  <TouchableOpacity
+                    key={speed}
+                    style={[
+                      styles.speedButton,
+                      playbackSpeed === speed && styles.speedButtonActive
+                    ]}
+                    onPress={() => handleSpeedChange(speed)}
+                  >
+                    <Text style={[
+                      styles.speedButtonText,
+                      playbackSpeed === speed && styles.speedButtonTextActive
+                    ]}>
+                      {speed}x
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
           </View>
 
           {error && (
@@ -206,8 +304,17 @@ export default function PlayerModal() {
             </Text>
           </View>
         </GlassCard>
-      </View>
-    </SafeAreaView>
+          </ScrollView>
+        </SafeAreaView>
+      </PanGH>
+      
+      {/* Confetti Animation */}
+      <ConfettiAnimation
+        visible={showConfetti}
+        onComplete={() => setShowConfetti(false)}
+        duration={2000}
+      />
+    </GestureHandlerRootView>
   );
 }
 
@@ -375,5 +482,46 @@ const styles = StyleSheet.create({
   challengeProgress: {
     fontSize: THEME.fonts.sizes.sm,
     color: THEME.colors.text.secondary,
+  },
+  speedControlsContainer: {
+    marginTop: THEME.spacing.md,
+    alignItems: 'center',
+  },
+  speedToggle: {
+    padding: THEME.spacing.sm,
+    borderRadius: THEME.borderRadius.sm,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    marginBottom: THEME.spacing.sm,
+  },
+  speedToggleText: {
+    fontSize: THEME.fonts.sizes.sm,
+    color: THEME.colors.text.primary,
+    fontWeight: '600',
+  },
+  speedButtons: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: THEME.spacing.xs,
+  },
+  speedButton: {
+    paddingHorizontal: THEME.spacing.sm,
+    paddingVertical: THEME.spacing.xs,
+    borderRadius: THEME.borderRadius.sm,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  speedButtonActive: {
+    backgroundColor: THEME.colors.primary,
+    borderColor: THEME.colors.primary,
+  },
+  speedButtonText: {
+    fontSize: THEME.fonts.sizes.sm,
+    color: THEME.colors.text.primary,
+    fontWeight: '500',
+  },
+  speedButtonTextActive: {
+    color: '#FFFFFF',
   },
 });

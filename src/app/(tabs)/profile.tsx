@@ -2,6 +2,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { GlassCard } from '../../components/ui/GlassCard';
+import { ThemeToggle } from '../../components/ui/ThemeToggle';
 import { useMusicStore, selectChallenges } from '../../stores/musicStore';
 import { useUserStore, selectTotalPoints, selectCompletedChallenges } from '../../stores/userStore';
 import { THEME } from '../../constants/theme';
@@ -67,6 +68,9 @@ export default function ProfileScreen() {
           );
         })}
       </GlassCard>
+
+      {/* Theme Toggle */}
+      <ThemeToggle />
 
       {/* Achievements */}
       <GlassCard style={styles.achievementsCard}>
