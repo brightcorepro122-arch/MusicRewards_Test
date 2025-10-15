@@ -5,10 +5,10 @@ export * from 'expo-router';
 
 declare module 'expo-router' {
   export namespace ExpoRouter {
-    export interface __routes<T extends string = string> extends Record<string, unknown> {
-      StaticRoutes: `/` | `/(modals)` | `/(modals)/challenge-detail` | `/(modals)/player` | `/(tabs)` | `/(tabs)/` | `/(tabs)/profile` | `/_sitemap` | `/challenge-detail` | `/player` | `/profile`;
-      DynamicRoutes: never;
-      DynamicRouteTemplate: never;
+    export interface __routes<T extends string | object = string> {
+      hrefInputParams: { pathname: Router.RelativePathString, params?: Router.UnknownInputParams } | { pathname: Router.ExternalPathString, params?: Router.UnknownInputParams } | { pathname: `/_sitemap`; params?: Router.UnknownInputParams; } | { pathname: `${'/(modals)'}/challenge-detail` | `/challenge-detail`; params?: Router.UnknownInputParams; } | { pathname: `${'/(modals)'}/player` | `/player`; params?: Router.UnknownInputParams; } | { pathname: `${'/(tabs)'}` | `/`; params?: Router.UnknownInputParams; } | { pathname: `${'/(tabs)'}/profile` | `/profile`; params?: Router.UnknownInputParams; };
+      hrefOutputParams: { pathname: Router.RelativePathString, params?: Router.UnknownOutputParams } | { pathname: Router.ExternalPathString, params?: Router.UnknownOutputParams } | { pathname: `/_sitemap`; params?: Router.UnknownOutputParams; } | { pathname: `${'/(modals)'}/challenge-detail` | `/challenge-detail`; params?: Router.UnknownOutputParams; } | { pathname: `${'/(modals)'}/player` | `/player`; params?: Router.UnknownOutputParams; } | { pathname: `${'/(tabs)'}` | `/`; params?: Router.UnknownOutputParams; } | { pathname: `${'/(tabs)'}/profile` | `/profile`; params?: Router.UnknownOutputParams; };
+      href: Router.RelativePathString | Router.ExternalPathString | `/_sitemap${`?${string}` | `#${string}` | ''}` | `${'/(modals)'}/challenge-detail${`?${string}` | `#${string}` | ''}` | `/challenge-detail${`?${string}` | `#${string}` | ''}` | `${'/(modals)'}/player${`?${string}` | `#${string}` | ''}` | `/player${`?${string}` | `#${string}` | ''}` | `${'/(tabs)'}${`?${string}` | `#${string}` | ''}` | `/${`?${string}` | `#${string}` | ''}` | `${'/(tabs)'}/profile${`?${string}` | `#${string}` | ''}` | `/profile${`?${string}` | `#${string}` | ''}` | { pathname: Router.RelativePathString, params?: Router.UnknownInputParams } | { pathname: Router.ExternalPathString, params?: Router.UnknownInputParams } | { pathname: `/_sitemap`; params?: Router.UnknownInputParams; } | { pathname: `${'/(modals)'}/challenge-detail` | `/challenge-detail`; params?: Router.UnknownInputParams; } | { pathname: `${'/(modals)'}/player` | `/player`; params?: Router.UnknownInputParams; } | { pathname: `${'/(tabs)'}` | `/`; params?: Router.UnknownInputParams; } | { pathname: `${'/(tabs)'}/profile` | `/profile`; params?: Router.UnknownInputParams; };
     }
   }
 }
