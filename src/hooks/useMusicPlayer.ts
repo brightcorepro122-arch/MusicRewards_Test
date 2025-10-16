@@ -1,20 +1,40 @@
 // useMusicPlayer hook - Integrates react-native-track-player with Zustand
 import { useCallback, useEffect, useState } from 'react';
-import TrackPlayer, {
-  State,
-  usePlaybackState,
-  useProgress,
-  Event,
-  useTrackPlayerEvents,
-} from 'react-native-track-player';
 import { useMusicStore, selectCurrentTrack, selectIsPlaying } from '../stores/musicStore';
 import { useUserStore } from '../stores/userStore';
 import type { MusicChallenge, UseMusicPlayerReturn } from '../types';
 
+// Conditional imports for TrackPlayer (only works in development builds, not Expo Go)
+let TrackPlayer: any = null;
+let State: any = null;
+let usePlaybackState: any = null;
+let useProgress: any = null;
+let Event: any = null;
+let useTrackPlayerEvents: any = null;
+
+// Check if we're in Expo Go environment
+const isExpoGo = typeof __DEV__ !== 'undefined' && __DEV__;
+
+if (!isExpoGo) {
+  try {
+    const trackPlayerModule = require('react-native-track-player');
+    TrackPlayer = trackPlayerModule.default;
+    State = trackPlayerModule.State;
+    usePlaybackState = trackPlayerModule.usePlaybackState;
+    useProgress = trackPlayerModule.useProgress;
+    Event = trackPlayerModule.Event;
+    useTrackPlayerEvents = trackPlayerModule.useTrackPlayerEvents;
+  } catch (error) {
+    console.log('TrackPlayer hooks not available - using mock implementations');
+  }
+} else {
+  console.log('TrackPlayer hooks disabled in Expo Go - using mock implementations');
+}
+
 export const useMusicPlayer = (): UseMusicPlayerReturn => {
-  // TrackPlayer hooks
-  const playbackState = usePlaybackState();
-  const progress = useProgress();
+  // TrackPlayer hooks (with fallbacks for Expo Go)
+  const playbackState = usePlaybackState ? usePlaybackState() : { state: 1 }; // State.Paused = 1
+  const progress = useProgress ? useProgress() : { position: 0, duration: 0 };
   
   // Local state
   const [loading, setLoading] = useState(false);
@@ -33,6 +53,8 @@ export const useMusicPlayer = (): UseMusicPlayerReturn => {
 
   // Track playback state changes
   useEffect(() => {
+    if (!TrackPlayer || !State) return; // Skip if TrackPlayer not available
+    
     // Some versions of usePlaybackState may return an object, so extract value if needed
     let stateValue: any = playbackState;
     if (typeof playbackState === 'object' && playbackState !== null && 'state' in playbackState) {
@@ -62,15 +84,23 @@ export const useMusicPlayer = (): UseMusicPlayerReturn => {
     }
   }, [progress.position, progress.duration, currentTrack, setCurrentPosition, updateProgress, markChallengeComplete, completeChallenge, addPoints]);
 
-  // Handle track player events
-  useTrackPlayerEvents([Event.PlaybackError], (event) => {
-    if (event.type === Event.PlaybackError) {
-      setError(`Playback error: ${event.message}`);
-      setLoading(false);
-    }
-  });
+  // Handle track player events (only if TrackPlayer is available)
+  if (useTrackPlayerEvents && Event) {
+    useTrackPlayerEvents([Event.PlaybackError], (event) => {
+      if (event.type === Event.PlaybackError) {
+        setError(`Playback error: ${event.message}`);
+        setLoading(false);
+      }
+    });
+  }
 
   const play = useCallback(async (track: MusicChallenge) => {
+    if (!TrackPlayer) {
+      console.log('TrackPlayer not available - simulating play');
+      setCurrentTrack(track);
+      return;
+    }
+    
     try {
       setLoading(true);
       setError(null);
@@ -98,6 +128,7 @@ export const useMusicPlayer = (): UseMusicPlayerReturn => {
   }, [setCurrentTrack]);
 
   const pause = useCallback(async () => {
+    if (!TrackPlayer) return;
     try {
       await TrackPlayer.pause();
     } catch (err) {
@@ -106,6 +137,7 @@ export const useMusicPlayer = (): UseMusicPlayerReturn => {
   }, []);
 
   const seekTo = useCallback(async (seconds: number) => {
+    if (!TrackPlayer) return;
     try {
       await TrackPlayer.seekTo(seconds);
     } catch (err) {
@@ -114,6 +146,7 @@ export const useMusicPlayer = (): UseMusicPlayerReturn => {
   }, []);
 
   const resume = useCallback(async () => {
+    if (!TrackPlayer) return;
     try {
       await TrackPlayer.play();
     } catch (err) {
@@ -126,8 +159,9 @@ export const useMusicPlayer = (): UseMusicPlayerReturn => {
   if (typeof playbackState === 'object' && playbackState !== null && 'state' in playbackState) {
     stateValue = playbackState.state;
   }
+  
   return {
-    isPlaying: stateValue === State.Playing,
+    isPlaying: State ? stateValue === State.Playing : false,
     currentTrack,
     currentPosition: progress.position,
     duration: progress.duration,

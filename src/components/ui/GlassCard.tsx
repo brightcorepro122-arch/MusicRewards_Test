@@ -34,7 +34,6 @@ export const GlassCard: React.FC<GlassCardProps> = ({
         <BlurView 
           intensity={blurIntensity} 
           style={StyleSheet.absoluteFillObject}
-          tint="dark"
         />
         
         <LinearGradient

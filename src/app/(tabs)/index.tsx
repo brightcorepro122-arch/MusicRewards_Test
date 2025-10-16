@@ -16,6 +16,7 @@ export default function HomeScreen() {
 
   const handlePlayChallenge = async (challenge: MusicChallenge) => {
     try {
+      console.log('Playing challenge:', challenge.title);
       await play(challenge);
       // Navigate to player modal after starting playback
       router.push('/(modals)/player');
