@@ -12,6 +12,10 @@ function App() {
   const [currentScreen, setCurrentScreen] = useState('home');
   const challenges = useMusicStore(selectChallenges);
   const loadChallenges = useMusicStore(selectLoadChallenges);
+  
+  // Move audio and points management to App level to persist across navigation
+  const { play, pause, resume, seekTo, stop, isPlaying, currentTrack, currentPosition, duration, loading, error } = useMusicPlayer();
+  const { currentPoints, pointsEarned, progress, isActive, startCounting, stopCounting, resetProgress } = usePointsCounter();
 
   useEffect(() => {
     loadChallenges();
@@ -21,26 +25,32 @@ function App() {
     setCurrentScreen(screen);
   };
 
-  const HomeScreen = () => {
-    const { play, loading } = useMusicPlayer();
-    const { currentPoints, pointsEarned, progress, isActive, startCounting } = usePointsCounter();
-
-    const handlePlayChallenge = async (challenge: MusicChallenge) => {
-      try {
-        console.log('Playing challenge:', challenge.title);
-        console.log('About to call play function');
-        const result = await play(challenge);
-        console.log('Play function completed:', result);
-        startCounting({
-          pointsPerSecond: challenge.points / challenge.duration,
-          maxPoints: challenge.points,
-          challengeId: challenge.id,
-        });
-        navigate('player');
-      } catch (error) {
-        console.error('Failed to play challenge:', error);
+  const handlePlayChallenge = async (challenge: MusicChallenge) => {
+    try {
+      console.log('Playing challenge:', challenge.title);
+      console.log('About to call play function');
+      
+      // Stop any currently playing audio before starting new one
+      if (isPlaying) {
+        console.log('Stopping current audio before playing new challenge');
+        await stop();
+        stopCounting();
       }
-    };
+      
+      const result = await play(challenge);
+      console.log('Play function completed:', result);
+      startCounting({
+        pointsPerSecond: challenge.points / challenge.duration,
+        maxPoints: challenge.points,
+        challengeId: challenge.id,
+      });
+      navigate('player');
+    } catch (error) {
+      console.error('Failed to play challenge:', error);
+    }
+  };
+
+  const HomeScreen = () => {
 
     return (
       <View style={styles.container}>
@@ -73,8 +83,6 @@ function App() {
   };
 
   const PlayerScreen = () => {
-    const { currentTrack, isPlaying, currentPosition, duration, pause, resume, seekTo, loading, error } = useMusicPlayer();
-    const { currentPoints, pointsEarned, progress, isActive } = usePointsCounter();
 
     const formatTime = (seconds: number) => {
       const minutes = Math.floor(seconds / 60);

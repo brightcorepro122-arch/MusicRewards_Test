@@ -25,26 +25,35 @@ export const useMusicPlayer = (): UseMusicPlayerReturn => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const soundObjectRef = useRef<Audio.Sound | null>(null);
 
   // Use Points Counter hook
   const { updateProgress: updatePointsCounterProgress } = usePointsCounter();
 
-  // Load and unload sound object
+  // Update soundObjectRef when soundObject changes
   useEffect(() => {
-    return soundObject
-      ? () => {
-          console.log('Unloading Sound');
-          soundObject.unloadAsync();
-          if (intervalRef.current) {
-            clearInterval(intervalRef.current);
-          }
-        }
-      : undefined;
+    soundObjectRef.current = soundObject;
   }, [soundObject]);
+
+  // Load and unload sound object - Only cleanup on component unmount, not on soundObject change
+  useEffect(() => {
+    return () => {
+      // Only cleanup if we're actually stopping the app, not just navigating
+      if (soundObjectRef.current) {
+        console.log('App unmounting - Unloading Sound');
+        soundObjectRef.current.unloadAsync();
+      }
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, []); // Empty dependency array - only run on mount/unmount
 
   // Update progress interval
   useEffect(() => {
+    console.log('Progress useEffect triggered:', { isPlaying, hasSoundObject: !!soundObject });
     if (isPlaying && soundObject) {
+      console.log('Starting progress interval');
       intervalRef.current = setInterval(async () => {
         try {
           const status = await soundObject.getStatusAsync();
@@ -113,8 +122,13 @@ export const useMusicPlayer = (): UseMusicPlayerReturn => {
       console.log('Creating new sound object for:', track.audioUrl);
       const { sound } = await Audio.Sound.createAsync(
         { uri: track.audioUrl },
-        { shouldPlay: true }
+        { 
+          shouldPlay: true,
+          isLooping: false,
+          volume: 1.0
+        }
       );
+      console.log('Sound object created successfully');
       
       console.log('Sound created, setting state');
       setSoundObject(sound);
@@ -134,6 +148,21 @@ export const useMusicPlayer = (): UseMusicPlayerReturn => {
         setDuration(status.durationMillis ? status.durationMillis / 1000 : 0);
         setCurrentPositionLocal(status.positionMillis / 1000);
       }
+      
+      // Wait a bit and check status again
+      setTimeout(async () => {
+        try {
+          const statusAfterDelay = await sound.getStatusAsync();
+          console.log('Audio status after 2 seconds:', {
+            isLoaded: statusAfterDelay.isLoaded,
+            isPlaying: statusAfterDelay.isPlaying,
+            positionMillis: statusAfterDelay.positionMillis,
+            durationMillis: statusAfterDelay.durationMillis
+          });
+        } catch (err) {
+          console.log('Error checking status after delay:', err);
+        }
+      }, 2000);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Playback failed';
       setError(errorMessage);
@@ -178,6 +207,25 @@ export const useMusicPlayer = (): UseMusicPlayerReturn => {
     }
   }, [soundObject, setCurrentPosition]);
 
+  const stop = useCallback(async () => {
+    try {
+      if (soundObject) {
+        console.log('Stopping audio playback');
+        await soundObject.stopAsync();
+        await soundObject.unloadAsync();
+        setSoundObject(null);
+        setIsPlaying(false);
+        setCurrentPositionLocal(0);
+        setDuration(0);
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+        }
+      }
+    } catch (err) {
+      console.error('Stop error:', err);
+    }
+  }, [soundObject, setIsPlaying]);
+
   return {
     isPlaying,
     currentTrack,
@@ -187,6 +235,7 @@ export const useMusicPlayer = (): UseMusicPlayerReturn => {
     pause,
     seekTo,
     resume,
+    stop,
     loading,
     error,
   };
