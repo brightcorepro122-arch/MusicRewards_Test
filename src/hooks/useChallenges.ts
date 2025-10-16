@@ -64,3 +64,4 @@ export const useChallenges = (): UseChallengesReturn => {
     completeChallenge: completeChallengeAction,
   };
 };
+
