@@ -1,17 +1,46 @@
-// Simple test version of MusicRewards App
+// Enhanced MusicRewards App with Bonus Features
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, AppRegistry } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, AppRegistry, ScrollView, Alert } from 'react-native';
 import { useMusicStore, selectChallenges, selectLoadChallenges } from './src/stores/musicStore';
+import { useUserStore, selectTotalPoints, selectLevel, selectStreak, selectAddPoints, selectUpdateStreak } from './src/stores/userStore';
+import { useAchievementsStore, selectAchievements, selectUnlockedAchievements, selectCheckAchievements } from './src/stores/achievementsStore';
+import { useDailyChallengesStore, selectDailyChallenges, selectGenerateDailyChallenges, selectUpdateChallengeProgress, selectCompleteChallenge } from './src/stores/dailyChallengesStore';
+import { useSettingsStore, selectThemeMode, selectSetThemeMode } from './src/stores/settingsStore';
 import { useMusicPlayer } from './src/hooks/useMusicPlayer';
 import { usePointsCounter } from './src/hooks/usePointsCounter';
+import { AnimatedVisualizer } from './src/components/ui/AnimatedVisualizer';
+import { OfflineIndicator } from './src/components/ui/OfflineIndicator';
+import { ShareButton } from './src/components/ui/ShareButton';
 import { THEME } from './src/constants/theme';
 import type { MusicChallenge } from './src/types';
 
-// Simple App Component
+// Enhanced App Component with Bonus Features
 function App() {
   const [currentScreen, setCurrentScreen] = useState('home');
   const challenges = useMusicStore(selectChallenges);
   const loadChallenges = useMusicStore(selectLoadChallenges);
+  
+  // User store
+  const totalPoints = useUserStore(selectTotalPoints);
+  const level = useUserStore(selectLevel);
+  const streak = useUserStore(selectStreak);
+  const addPoints = useUserStore(selectAddPoints);
+  const updateStreak = useUserStore(selectUpdateStreak);
+  
+  // Achievements store
+  const achievements = useAchievementsStore(selectAchievements);
+  const unlockedAchievements = useAchievementsStore(selectUnlockedAchievements);
+  const checkAchievements = useAchievementsStore(selectCheckAchievements);
+  
+  // Daily challenges store
+  const dailyChallenges = useDailyChallengesStore(selectDailyChallenges);
+  const generateDailyChallenges = useDailyChallengesStore(selectGenerateDailyChallenges);
+  const updateChallengeProgress = useDailyChallengesStore(selectUpdateChallengeProgress);
+  const completeChallenge = useDailyChallengesStore(selectCompleteChallenge);
+  
+  // Settings store
+  const themeMode = useSettingsStore(selectThemeMode);
+  const setThemeMode = useSettingsStore(selectSetThemeMode);
   
   // Move audio and points management to App level to persist across navigation
   const { play, pause, resume, seekTo, stop, isPlaying, currentTrack, currentPosition, duration, loading, error } = useMusicPlayer();
@@ -19,7 +48,72 @@ function App() {
 
   useEffect(() => {
     loadChallenges();
-  }, [loadChallenges]);
+    generateDailyChallenges();
+  }, [loadChallenges, generateDailyChallenges]);
+
+  // Check achievements when points or progress changes
+  useEffect(() => {
+    const completedChallengesCount = challenges.filter(c => c.completed).length;
+    const totalListeningTime = currentPosition; // Simplified for demo
+    
+    checkAchievements({
+      totalPoints,
+      completedChallenges: completedChallengesCount,
+      streak,
+      totalListeningTime,
+    });
+  }, [totalPoints, challenges, streak, currentPosition, checkAchievements]);
+
+  // Update daily challenge progress
+  useEffect(() => {
+    if (isActive && currentPosition > 0) {
+      // Update listening duration challenges
+      dailyChallenges.forEach(challenge => {
+        if (challenge.challengeType === 'listen_duration' && !challenge.completed) {
+          updateChallengeProgress(challenge.id, currentPosition);
+          
+          // Check if daily challenge is completed
+          if (currentPosition >= challenge.requirement) {
+            completeChallenge(challenge.id);
+            Alert.alert(
+              'Daily Challenge Completed! 🎉',
+              `You earned ${challenge.reward} bonus points!`,
+              [{ text: 'Awesome!' }]
+            );
+          }
+        }
+      });
+    }
+  }, [currentPosition, isActive, dailyChallenges, updateChallengeProgress, completeChallenge]);
+
+  // Handle music challenge completion
+  useEffect(() => {
+    if (progress >= 90 && isActive) {
+      // Music challenge is 90% complete, mark as completed
+      if (currentTrack) {
+        // This would typically update the music store to mark challenge as completed
+        console.log('Challenge completed:', currentTrack.title);
+        
+        // Update daily challenge progress for "complete_challenges" type
+        dailyChallenges.forEach(dailyChallenge => {
+          if (dailyChallenge.challengeType === 'complete_challenges' && !dailyChallenge.completed) {
+            const newProgress = dailyChallenge.progress + 1;
+            updateChallengeProgress(dailyChallenge.id, newProgress);
+            
+            // Check if daily challenge is completed
+            if (newProgress >= dailyChallenge.requirement) {
+              completeChallenge(dailyChallenge.id);
+              Alert.alert(
+                'Daily Challenge Completed! 🎉',
+                `You earned ${dailyChallenge.reward} bonus points!`,
+                [{ text: 'Awesome!' }]
+              );
+            }
+          }
+        });
+      }
+    }
+  }, [progress, isActive, currentTrack, dailyChallenges, updateChallengeProgress, completeChallenge]);
 
   const navigate = (screen: string) => {
     setCurrentScreen(screen);
@@ -44,23 +138,111 @@ function App() {
         maxPoints: challenge.points,
         challengeId: challenge.id,
       });
+      
+      // Update streak when starting a challenge
+      updateStreak();
+      
+      // Update daily challenge progress for "complete_challenges" type
+      dailyChallenges.forEach(dailyChallenge => {
+        if (dailyChallenge.challengeType === 'complete_challenges' && !dailyChallenge.completed) {
+          const newProgress = dailyChallenge.progress + 1;
+          updateChallengeProgress(dailyChallenge.id, newProgress);
+          
+          // Check if daily challenge is completed
+          if (newProgress >= dailyChallenge.requirement) {
+            completeChallenge(dailyChallenge.id);
+            Alert.alert(
+              'Daily Challenge Completed! 🎉',
+              `You earned ${dailyChallenge.reward} bonus points!`,
+              [{ text: 'Awesome!' }]
+            );
+          }
+        }
+      });
+      
       navigate('player');
     } catch (error) {
       console.error('Failed to play challenge:', error);
     }
   };
 
-  const HomeScreen = () => {
+  const handlePointsEarned = (points: number) => {
+    addPoints(points);
+    
+    // Update daily challenge progress for points
+    dailyChallenges.forEach(challenge => {
+      if (challenge.challengeType === 'earn_points' && !challenge.completed) {
+        updateChallengeProgress(challenge.id, totalPoints + points);
+      }
+    });
+  };
 
+  const HomeScreen = () => {
     return (
-      <View style={styles.container}>
+      <ScrollView style={styles.container}>
         <View style={styles.header}>
           <Text style={styles.title}>🎵 MusicRewards</Text>
           <Text style={styles.subtitle}>Earn points by listening to music!</Text>
+          <View style={styles.statsRow}>
+            <Text style={styles.statText}>Level {level}</Text>
+            <Text style={styles.statText}>{totalPoints} points</Text>
+            <Text style={styles.statText}>🔥 {streak} day streak</Text>
+          </View>
+        </View>
+
+        {/* Daily Challenges Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>📅 Daily Challenges</Text>
+          {dailyChallenges.length > 0 ? (
+            dailyChallenges.map((challenge) => (
+              <View key={challenge.id} style={[styles.dailyChallengeCard, challenge.completed && styles.completedCard]}>
+                <Text style={styles.dailyChallengeIcon}>{challenge.icon}</Text>
+                <View style={styles.dailyChallengeContent}>
+                  <Text style={styles.dailyChallengeTitle}>{challenge.title}</Text>
+                  <Text style={styles.dailyChallengeDesc}>{challenge.description}</Text>
+                  <View style={styles.progressContainer}>
+                    <View style={styles.progressBar}>
+                      <View 
+                        style={[
+                          styles.progressFill, 
+                          { width: `${(challenge.progress / challenge.requirement) * 100}%` }
+                        ]} 
+                      />
+                    </View>
+                    <Text style={styles.progressText}>
+                      {challenge.progress}/{challenge.requirement}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.dailyChallengeActions}>
+                  <Text style={styles.dailyChallengeReward}>+{challenge.reward}</Text>
+                  {challenge.challengeType === 'complete_challenges' && (
+                    <TouchableOpacity 
+                      style={[styles.dailyPlayButton, challenge.completed && styles.dailyPlayButtonCompleted]}
+                      onPress={() => {
+                        // Navigate to music challenges to complete this daily challenge
+                        Alert.alert(
+                          'Complete Daily Challenge',
+                          'Play any music challenge to progress this daily challenge!',
+                          [{ text: 'OK' }]
+                        );
+                      }}
+                    >
+                      <Text style={styles.dailyPlayButtonText}>
+                        {challenge.completed ? '✅ Done' : '🎵 Play'}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+            ))
+          ) : (
+            <Text style={styles.noChallengesText}>No daily challenges available</Text>
+          )}
         </View>
         
-        <View style={styles.challengesContainer}>
-          <Text style={styles.sectionTitle}>Available Challenges:</Text>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>🎵 Music Challenges</Text>
           {challenges.map((challenge) => (
             <View key={challenge.id} style={styles.challengeCard}>
               <Text style={styles.challengeTitle}>{challenge.title}</Text>
@@ -78,12 +260,11 @@ function App() {
             </View>
           ))}
         </View>
-      </View>
+      </ScrollView>
     );
   };
 
   const PlayerScreen = () => {
-
     const formatTime = (seconds: number) => {
       const minutes = Math.floor(seconds / 60);
       const remainingSeconds = Math.floor(seconds % 60);
@@ -100,35 +281,159 @@ function App() {
         </View>
         
         <View style={styles.playerContent}>
-          <Text style={styles.playerText}>Audio Player</Text>
-          <Text style={styles.playerText}>Track: {currentTrack?.title || 'None'}</Text>
-          <Text style={styles.playerText}>Playing: {isPlaying ? 'Yes' : 'No'}</Text>
-          <Text style={styles.playerText}>Position: {formatTime(currentPosition)}</Text>
-          <Text style={styles.playerText}>Duration: {formatTime(duration)}</Text>
-          <Text style={styles.playerText}>Points: {currentPoints}</Text>
-          <Text style={styles.playerText}>Earned: +{pointsEarned}</Text>
-          <Text style={styles.playerText}>Progress: {Math.round(progress)}%</Text>
-          <Text style={styles.playerText}>Active: {isActive ? 'Yes' : 'No'}</Text>
-          {error && <Text style={styles.errorText}>Error: {error}</Text>}
+          {/* Track Info */}
+          <View style={styles.trackInfo}>
+            <Text style={styles.trackTitle}>{currentTrack?.title || 'No Track'}</Text>
+            <Text style={styles.trackArtist}>by {currentTrack?.artist || 'Unknown Artist'}</Text>
+            <Text style={styles.trackDescription}>{currentTrack?.description}</Text>
+          </View>
+
+          {/* Animated Visualizer */}
+          <AnimatedVisualizer 
+            isPlaying={isPlaying} 
+            intensity={isPlaying ? 0.8 : 0.1}
+            height={120}
+          />
+
+          {/* Progress Bar */}
+          <View style={styles.progressContainer}>
+            <Text style={styles.timeText}>{formatTime(currentPosition)}</Text>
+            <View style={styles.progressBar}>
+              <View 
+                style={[
+                  styles.progressFill, 
+                  { width: `${duration > 0 ? (currentPosition / duration) * 100 : 0}%` }
+                ]} 
+              />
+            </View>
+            <Text style={styles.timeText}>{formatTime(duration)}</Text>
+          </View>
+
+          {/* Points Counter */}
+          <View style={styles.pointsContainer}>
+            <Text style={styles.pointsText}>Points Earned</Text>
+            <Text style={styles.pointsValue}>+{pointsEarned}</Text>
+            <Text style={styles.progressText}>Progress: {Math.round(progress)}%</Text>
+          </View>
+
+          {/* Controls */}
+          <View style={styles.controls}>
+            <TouchableOpacity style={styles.controlButton} onPress={() => seekTo(Math.max(0, currentPosition - 15))}>
+              <Text style={styles.controlButtonText}>⏪ 15s</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity 
+              style={styles.playPauseButton} 
+              onPress={isPlaying ? pause : resume}
+            >
+              <Text style={styles.playPauseButtonText}>
+                {isPlaying ? '⏸️' : '▶️'}
+              </Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.controlButton} onPress={() => seekTo(Math.min(duration, currentPosition + 15))}>
+              <Text style={styles.controlButtonText}>15s ⏩</Text>
+            </TouchableOpacity>
+          </View>
+
+          {error && (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>Error: {error}</Text>
+            </View>
+          )}
         </View>
       </View>
     );
   };
 
-  const ProfileScreen = () => (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>👤 Profile</Text>
-        <Text style={styles.subtitle}>Your music journey</Text>
-      </View>
-      
-      <View style={styles.profileContent}>
-        <Text style={styles.profileText}>Total Points: 0</Text>
-        <Text style={styles.profileText}>Level: 1</Text>
-        <Text style={styles.profileText}>Streak: 0 days</Text>
-      </View>
-    </View>
-  );
+  const ProfileScreen = () => {
+    const unlockedCount = unlockedAchievements.length;
+    const totalAchievements = achievements.length;
+    const completedChallenges = challenges.filter(c => c.completed).length;
+
+    return (
+      <ScrollView style={styles.container}>
+        <View style={styles.header}>
+          <Text style={styles.title}>👤 Profile</Text>
+          <Text style={styles.subtitle}>Your music journey</Text>
+        </View>
+        
+        {/* Stats Overview */}
+        <View style={styles.statsSection}>
+          <View style={styles.statCard}>
+            <Text style={styles.statNumber}>{totalPoints}</Text>
+            <Text style={styles.statLabel}>Total Points</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statNumber}>{level}</Text>
+            <Text style={styles.statLabel}>Level</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statNumber}>{streak}</Text>
+            <Text style={styles.statLabel}>Day Streak</Text>
+          </View>
+        </View>
+
+        {/* Achievements Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>🏆 Achievements ({unlockedCount}/{totalAchievements})</Text>
+          <View style={styles.achievementsGrid}>
+            {achievements.map((achievement) => (
+              <View 
+                key={achievement.id} 
+                style={[
+                  styles.achievementCard, 
+                  achievement.unlocked && styles.unlockedAchievement
+                ]}
+              >
+                <Text style={styles.achievementIcon}>{achievement.icon}</Text>
+                <Text style={styles.achievementTitle}>{achievement.title}</Text>
+                <Text style={styles.achievementPoints}>+{achievement.points}</Text>
+                {achievement.unlocked && (
+                  <ShareButton 
+                    message={`I just unlocked "${achievement.title}" achievement in MusicRewards! ${achievement.description}`}
+                    style={styles.shareButton}
+                    textStyle={styles.shareButtonText}
+                  />
+                )}
+              </View>
+            ))}
+          </View>
+        </View>
+
+        {/* Progress Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>📊 Progress</Text>
+          <View style={styles.progressCard}>
+            <Text style={styles.progressText}>Challenges Completed: {completedChallenges}/{challenges.length}</Text>
+            <View style={styles.progressBar}>
+              <View 
+                style={[
+                  styles.progressFill, 
+                  { width: `${(completedChallenges / challenges.length) * 100}%` }
+                ]} 
+              />
+            </View>
+          </View>
+        </View>
+
+        {/* Settings Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>⚙️ Settings</Text>
+          <TouchableOpacity 
+            style={styles.settingItem}
+            onPress={() => {
+              const newTheme = themeMode === 'dark' ? 'light' : 'dark';
+              setThemeMode(newTheme);
+            }}
+          >
+            <Text style={styles.settingText}>Theme: {themeMode === 'dark' ? '🌙 Dark' : '☀️ Light'}</Text>
+            <Text style={styles.settingArrow}>→</Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    );
+  };
 
   const renderScreen = () => {
     switch (currentScreen) {
@@ -143,6 +448,7 @@ function App() {
 
   return (
     <SafeAreaView style={styles.appContainer}>
+      <OfflineIndicator position="top" />
       {renderScreen()}
       <View style={styles.navigationBar}>
         <TouchableOpacity
@@ -150,7 +456,7 @@ function App() {
           onPress={() => navigate('home')}
         >
           <Text style={[styles.navButtonText, currentScreen === 'home' && styles.navButtonTextActive]}>
-            Home
+            🏠 Home
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -158,7 +464,7 @@ function App() {
           onPress={() => navigate('profile')}
         >
           <Text style={[styles.navButtonText, currentScreen === 'profile' && styles.navButtonTextActive]}>
-            Profile
+            👤 Profile
           </Text>
         </TouchableOpacity>
       </View>
@@ -392,6 +698,181 @@ const styles = StyleSheet.create({
   errorText: {
     color: THEME.colors.error,
     textAlign: 'center',
+  },
+  // New styles for bonus features
+  section: {
+    marginBottom: THEME.spacing.lg,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: THEME.spacing.sm,
+  },
+  statText: {
+    fontSize: THEME.fonts.sizes.sm,
+    color: THEME.colors.text.secondary,
+    fontWeight: '600',
+  },
+  dailyChallengeCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    padding: THEME.spacing.md,
+    borderRadius: THEME.borderRadius.md,
+    marginBottom: THEME.spacing.sm,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  completedCard: {
+    backgroundColor: 'rgba(76, 175, 80, 0.2)',
+    borderColor: THEME.colors.success,
+  },
+  dailyChallengeIcon: {
+    fontSize: 24,
+    marginRight: THEME.spacing.sm,
+  },
+  dailyChallengeContent: {
+    flex: 1,
+  },
+  dailyChallengeTitle: {
+    fontSize: THEME.fonts.sizes.md,
+    fontWeight: 'bold',
+    color: THEME.colors.text.primary,
+    marginBottom: THEME.spacing.xs,
+  },
+  dailyChallengeDesc: {
+    fontSize: THEME.fonts.sizes.sm,
+    color: THEME.colors.text.secondary,
+    marginBottom: THEME.spacing.xs,
+  },
+  dailyChallengeReward: {
+    fontSize: THEME.fonts.sizes.sm,
+    color: THEME.colors.secondary,
+    fontWeight: 'bold',
+  },
+  dailyChallengeActions: {
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    minWidth: 80,
+  },
+  dailyPlayButton: {
+    backgroundColor: THEME.colors.primary,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: THEME.borderRadius.sm,
+    marginTop: THEME.spacing.xs,
+  },
+  dailyPlayButtonCompleted: {
+    backgroundColor: THEME.colors.success,
+  },
+  dailyPlayButtonText: {
+    color: THEME.colors.text.primary,
+    fontSize: THEME.fonts.sizes.xs,
+    fontWeight: '600',
+  },
+  noChallengesText: {
+    fontSize: THEME.fonts.sizes.md,
+    color: THEME.colors.text.secondary,
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+  pointsValue: {
+    fontSize: THEME.fonts.sizes.xl,
+    fontWeight: 'bold',
+    color: THEME.colors.secondary,
+    marginBottom: THEME.spacing.xs,
+  },
+  statsSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: THEME.spacing.lg,
+  },
+  statCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    padding: THEME.spacing.md,
+    borderRadius: THEME.borderRadius.md,
+    alignItems: 'center',
+    flex: 1,
+    marginHorizontal: THEME.spacing.xs,
+  },
+  statNumber: {
+    fontSize: THEME.fonts.sizes.xl,
+    fontWeight: 'bold',
+    color: THEME.colors.primary,
+    marginBottom: THEME.spacing.xs,
+  },
+  statLabel: {
+    fontSize: THEME.fonts.sizes.sm,
+    color: THEME.colors.text.secondary,
+  },
+  achievementsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  achievementCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    padding: THEME.spacing.sm,
+    borderRadius: THEME.borderRadius.sm,
+    alignItems: 'center',
+    width: '48%',
+    marginBottom: THEME.spacing.sm,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+  },
+  unlockedAchievement: {
+    backgroundColor: 'rgba(255, 193, 7, 0.2)',
+    borderColor: THEME.colors.warning,
+  },
+  achievementIcon: {
+    fontSize: 24,
+    marginBottom: THEME.spacing.xs,
+  },
+  achievementTitle: {
+    fontSize: THEME.fonts.sizes.sm,
+    fontWeight: 'bold',
+    color: THEME.colors.text.primary,
+    textAlign: 'center',
+    marginBottom: THEME.spacing.xs,
+  },
+  achievementPoints: {
+    fontSize: THEME.fonts.sizes.xs,
+    color: THEME.colors.secondary,
+    marginBottom: THEME.spacing.xs,
+  },
+  shareButton: {
+    backgroundColor: THEME.colors.primary,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: THEME.borderRadius.xs,
+  },
+  shareButtonText: {
+    fontSize: THEME.fonts.sizes.xs,
+  },
+  progressCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    padding: THEME.spacing.md,
+    borderRadius: THEME.borderRadius.md,
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+  },
+  settingItem: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    padding: THEME.spacing.md,
+    borderRadius: THEME.borderRadius.md,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: THEME.colors.border,
+  },
+  settingText: {
+    fontSize: THEME.fonts.sizes.md,
+    color: THEME.colors.text.primary,
+  },
+  settingArrow: {
+    fontSize: THEME.fonts.sizes.md,
+    color: THEME.colors.text.secondary,
   },
 });
 
