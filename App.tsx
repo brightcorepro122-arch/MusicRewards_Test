@@ -84,7 +84,7 @@ function App() {
         }
       });
     }
-  }, [currentPosition, isActive, dailyChallenges, updateChallengeProgress, completeChallenge]);
+  }, [currentPosition, isActive, updateChallengeProgress, completeChallenge]);
 
   // Handle music challenge completion
   useEffect(() => {
@@ -113,7 +113,7 @@ function App() {
         });
       }
     }
-  }, [progress, isActive, currentTrack, dailyChallenges, updateChallengeProgress, completeChallenge]);
+  }, [progress, isActive, currentTrack, updateChallengeProgress, completeChallenge]);
 
   const navigate = (screen: string) => {
     setCurrentScreen(screen);
@@ -142,23 +142,7 @@ function App() {
       // Update streak when starting a challenge
       updateStreak();
       
-      // Update daily challenge progress for "complete_challenges" type
-      dailyChallenges.forEach(dailyChallenge => {
-        if (dailyChallenge.challengeType === 'complete_challenges' && !dailyChallenge.completed) {
-          const newProgress = dailyChallenge.progress + 1;
-          updateChallengeProgress(dailyChallenge.id, newProgress);
-          
-          // Check if daily challenge is completed
-          if (newProgress >= dailyChallenge.requirement) {
-            completeChallenge(dailyChallenge.id);
-            Alert.alert(
-              'Daily Challenge Completed! 🎉',
-              `You earned ${dailyChallenge.reward} bonus points!`,
-              [{ text: 'Awesome!' }]
-            );
-          }
-        }
-      });
+      // Note: Daily challenge progress will be updated when the music challenge is completed (90% progress)
       
       navigate('player');
     } catch (error) {
@@ -170,9 +154,20 @@ function App() {
     addPoints(points);
     
     // Update daily challenge progress for points
+    const newTotalPoints = totalPoints + points;
     dailyChallenges.forEach(challenge => {
       if (challenge.challengeType === 'earn_points' && !challenge.completed) {
-        updateChallengeProgress(challenge.id, totalPoints + points);
+        updateChallengeProgress(challenge.id, newTotalPoints);
+        
+        // Check if daily challenge is completed
+        if (newTotalPoints >= challenge.requirement) {
+          completeChallenge(challenge.id);
+          Alert.alert(
+            'Daily Challenge Completed! 🎉',
+            `You earned ${challenge.reward} bonus points!`,
+            [{ text: 'Awesome!' }]
+          );
+        }
       }
     });
   };
