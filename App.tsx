@@ -319,7 +319,16 @@ function App() {
             
             <TouchableOpacity 
               style={styles.playPauseButton} 
-              onPress={isPlaying ? pause : resume}
+              onPress={async () => {
+                console.log('Play/Pause button pressed, isPlaying:', isPlaying);
+                if (isPlaying) {
+                  console.log('Calling pause function');
+                  await pause();
+                } else {
+                  console.log('Calling resume function');
+                  await resume();
+                }
+              }}
             >
               <Text style={styles.playPauseButtonText}>
                 {isPlaying ? '⏸️' : '▶️'}

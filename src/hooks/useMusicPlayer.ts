@@ -175,9 +175,15 @@ export const useMusicPlayer = (): UseMusicPlayerReturn => {
 
   const pause = useCallback(async () => {
     try {
+      console.log('Pause function called, soundObject exists:', !!soundObject);
       if (soundObject) {
+        console.log('Pausing audio...');
         await soundObject.pauseAsync();
+        console.log('Audio paused successfully');
         setIsPlaying(false);
+        console.log('Set isPlaying to false');
+      } else {
+        console.log('No sound object to pause');
       }
     } catch (err) {
       console.error('Pause error:', err);
@@ -186,9 +192,15 @@ export const useMusicPlayer = (): UseMusicPlayerReturn => {
 
   const resume = useCallback(async () => {
     try {
+      console.log('Resume function called, soundObject exists:', !!soundObject);
       if (soundObject) {
+        console.log('Resuming audio...');
         await soundObject.playAsync();
+        console.log('Audio resumed successfully');
         setIsPlaying(true);
+        console.log('Set isPlaying to true');
+      } else {
+        console.log('No sound object to resume');
       }
     } catch (err) {
       console.error('Resume error:', err);
